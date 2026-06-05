@@ -18,7 +18,7 @@ const C = {
   blue: '#2e6db8',
 };
 
-const uid = () => Math.random().toString(36).slice(2) + Date.now().toString(36);
+const uid = () => 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) { const r = Math.random() * 16 | 0; return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16); });
 
 async function sb(path, method, body, extra) {
   method = method || 'GET';
