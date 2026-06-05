@@ -18,7 +18,7 @@ const C = {
   blue: '#2e6db8',
 };
 
-const uid = () => 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) { const r = Math.random() * 16 | 0; return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16); });
+const uid = () => Math.random().toString(36).slice(2) + Date.now().toString(36);
 
 async function sb(path, method, body, extra) {
   method = method || 'GET';
@@ -393,6 +393,7 @@ function Fld(props) {
 function AgentTab(props) {
   const { banks, knowledge, examples, calc, setCalc, user, onSaved } = props;
   const [msgs, setMsgs] = useState([]);
+  const [apiMsgs, setApiMsgs] = useState([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [phase, setPhase] = useState('idle');
@@ -401,11 +402,14 @@ function AgentTab(props) {
   const [recBank, setRecBank] = useState('');
   const [recStrat, setRecStrat] = useState('');
   const [xlLoading, setXlLoading] = useState(false);
+  const [pdfFile, setPdfFile] = useState(null);
+  const [pdfLoading, setPdfLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
   const fileRef = useRef(null);
+  const pdfRef = useRef(null);
 
   useEffect(function() {
     if (bottomRef.current) bottomRef.current.scrollIntoView({ behavior: 'smooth' });
@@ -420,28 +424,89 @@ function AgentTab(props) {
     e.target.value = '';
   }
 
-  function start() {
+  async function handlePdf(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    setPdfLoading(true);
+    const reader = new FileReader();
+    reader.onload = function(ev) {
+      const base64 = ev.target.result.split(',')[1];
+      setPdfFile({ name: file.name, data: base64 });
+      setPdfLoading(false);
+    };
+    reader.onerror = function() {
+      alert('Kunne ikke lese PDF-filen.');
+      setPdfLoading(false);
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  }
+
+  async function start() {
     setPhase('chat');
-    setMsgs([{ role: 'assistant', content: 'Hei ' + user.name + '! Klar til ny sak. Fortell meg om kunden.' }]);
-    setTimeout(function() { if (inputRef.current) inputRef.current.focus(); }, 100);
+    setLoading(true);
+
+    if (pdfFile) {
+      setMsgs([{ role: 'assistant', content: 'Analyserer PDF-soknaden din...' }]);
+      const pdfMsg = {
+        role: 'user',
+        content: [
+          {
+            type: 'document',
+            source: { type: 'base64', media_type: 'application/pdf', data: pdfFile.data },
+          },
+          {
+            type: 'text',
+            text: 'Analyser denne lanesøknaden grundig. Trekk ut all relevant kundeinfo (navn, inntekt, gjeld, formal, sikkerhet, betalingsanmerkninger). Vurder saken mot bankretningslinjene og anbefal beste losning og bank.',
+          },
+        ],
+      };
+      const initApiMsgs = [pdfMsg];
+      try {
+        const res = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ system: buildPrompt(banks, knowledge, examples, calc, user.name), messages: initApiMsgs }),
+        });
+        const data = await res.json();
+        const reply = (data.content && data.content[0] && data.content[0].text) || 'Noe gikk galt.';
+        const assistantMsg = { role: 'assistant', content: reply };
+        setMsgs([assistantMsg]);
+        setApiMsgs(initApiMsgs.concat([assistantMsg]));
+      } catch (e2) {
+        setMsgs([{ role: 'assistant', content: 'Tilkoblingsfeil ved PDF-analyse.' }]);
+        setApiMsgs([]);
+      }
+    } else {
+      const welcome = { role: 'assistant', content: 'Hei ' + user.name + '! Klar til ny sak. Fortell meg om kunden.' };
+      setMsgs([welcome]);
+      setApiMsgs([welcome]);
+      setTimeout(function() { if (inputRef.current) inputRef.current.focus(); }, 100);
+    }
+    setLoading(false);
   }
 
   async function send() {
     if (!input.trim() || loading) return;
     const txt = input.trim();
     setInput('');
-    const newMsgs = msgs.concat([{ role: 'user', content: txt }]);
-    setMsgs(newMsgs);
+    const userMsg = { role: 'user', content: txt };
+    const newDisplayMsgs = msgs.concat([userMsg]);
+    const newApiMsgs = apiMsgs.concat([userMsg]);
+    setMsgs(newDisplayMsgs);
+    setApiMsgs(newApiMsgs);
     setLoading(true);
     try {
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ system: buildPrompt(banks, knowledge, examples, calc, user.name), messages: newMsgs }),
+        body: JSON.stringify({ system: buildPrompt(banks, knowledge, examples, calc, user.name), messages: newApiMsgs }),
       });
       const data = await res.json();
       const reply = (data.content && data.content[0] && data.content[0].text) || 'Noe gikk galt.';
-      setMsgs(function(prev) { return prev.concat([{ role: 'assistant', content: reply }]); });
+      const assistantMsg = { role: 'assistant', content: reply };
+      setMsgs(function(prev) { return prev.concat([assistantMsg]); });
+      setApiMsgs(function(prev) { return prev.concat([assistantMsg]); });
       if (reply.indexOf('KLAR TIL UTFYLLING') >= 0) {
         const crmM = reply.match(/\*\*CRM-NOTAT:\*\*([\s\S]*?)(?=\*\*LANESOKNAD|$)/);
         const loanM = reply.match(/\*\*LANESOKNAD[\s\S]*?:\*\*([\s\S]*?)(?=\*\*ANBEFALT|$)/);
@@ -485,8 +550,9 @@ function AgentTab(props) {
   }
 
   function reset() {
-    setMsgs([]); setInput(''); setPhase('idle');
+    setMsgs([]); setApiMsgs([]); setInput(''); setPhase('idle');
     setCrm(''); setLoan(''); setRecBank(''); setRecStrat(''); setSaved(false);
+    setPdfFile(null);
   }
 
   const H = 'calc(100vh - 54px)';
@@ -509,6 +575,18 @@ function AgentTab(props) {
             <button onClick={function() { setCalc(null); }} style={{ background: 'transparent', border: 'none', color: C.muted, cursor: 'pointer', fontSize: 13 }}>x</button>
           </div>
         )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <input ref={pdfRef} type="file" accept=".pdf" onChange={handlePdf} style={{ display: 'none' }} />
+          <button
+            onClick={function() { pdfRef.current.click(); }}
+            style={{ background: pdfFile ? 'rgba(201,168,76,0.15)' : 'transparent', border: '1px solid ' + (pdfFile ? C.gold : C.border), color: pdfFile ? C.gold : C.muted, padding: '3px 10px', borderRadius: 4, cursor: 'pointer', fontSize: 10, fontFamily: 'inherit' }}
+          >
+            {pdfLoading ? 'Leser PDF...' : pdfFile ? 'PDF: ' + pdfFile.name.slice(0, 20) : 'Last opp PDF-soknad'}
+          </button>
+          {pdfFile && (
+            <button onClick={function() { setPdfFile(null); }} style={{ background: 'transparent', border: 'none', color: C.muted, cursor: 'pointer', fontSize: 13 }}>x</button>
+          )}
+        </div>
         <div style={{ marginLeft: 'auto', fontSize: 9, color: C.muted }}>{banks.length} banker / {knowledge.length} artikler / {examples.length} eksempler</div>
       </div>
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
