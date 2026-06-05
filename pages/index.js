@@ -611,7 +611,7 @@ function KnowledgeTab({knowledge,user,onSave}){
       <div style={{width:250,borderRight:`1px solid ${C.border}`,display:'flex',flexDirection:'column',background:C.surface,flexShrink:0}}>
         <div style={{padding:'10px 14px',borderBottom:`1px solid ${C.border}`,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
           <span style={{fontSize:10,color:C.muted,letterSpacing:'0.1em',textTransform:'uppercase'}}>Kunnskap ({knowledge.length})</span>
-          {isAdmin&&<button onClick={()=>{setSel('new');setForm({title:'',content:'');}} style={{background:`linear-gradient(135deg,${C.gold},${C.goldLight})`,border:'none',color:C.bg,padding:'3px 10px',borderRadius:4,cursor:'pointer',fontSize:10,fontWeight:'bold',fontFamily:'inherit'}}>+ Ny</button>}
+          {isAdmin&&<button onClick={()=>{setSel('new');setForm({title:'',content:''});}} style={{background:`linear-gradient(135deg,${C.gold},${C.goldLight})`,border:'none',color:C.bg,padding:'3px 10px',borderRadius:4,cursor:'pointer',fontSize:10,fontWeight:'bold',fontFamily:'inherit'}}>+ Ny</button>}
         </div>
         <div style={{flex:1,overflowY:'auto'}}>
           {knowledge.length===0&&<div style={{padding:18,textAlign:'center',color:C.muted,fontSize:11,lineHeight:1.8}}>{isAdmin?'Legg inn løsningsstrategier og produktkunnskap.':'Admin legger inn kunnskap.'}</div>}
