@@ -8,6 +8,9 @@ export default function KnowledgeTab({ user }) {
   const [kcontent, setKcontent] = useState('');
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [urlInput, setUrlInput] = useState('');
+  const [crawling, setCrawling] = useState(false);
+  const [crawlError, setCrawlError] = useState('');
   const isAdmin = user.role === 'admin';
 
   async function load() {
@@ -19,9 +22,29 @@ export default function KnowledgeTab({ user }) {
 
   useEffect(() => { load(); }, []);
 
-  function openNew() { setSel('new'); setKtitle(''); setKcontent(''); }
-  function openEdit(k) { setSel(k.id); setKtitle(k.title); setKcontent(k.content); }
-  function cancel() { setSel(null); setKtitle(''); setKcontent(''); }
+  function openNew() { setSel('new'); setKtitle(''); setKcontent(''); setUrlInput(''); setCrawlError(''); }
+  function openEdit(k) { setSel(k.id); setKtitle(k.title); setKcontent(k.content); setUrlInput(''); setCrawlError(''); }
+  function cancel() { setSel(null); setKtitle(''); setKcontent(''); setUrlInput(''); setCrawlError(''); }
+
+  async function fetchFromUrl() {
+    if (!urlInput.trim()) return;
+    setCrawling(true);
+    setCrawlError('');
+    try {
+      const res = await fetch('/api/crawl', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: urlInput.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setKtitle(data.title);
+      setKcontent(data.content);
+    } catch (e) {
+      setCrawlError(e.message);
+    }
+    setCrawling(false);
+  }
 
   async function save() {
     if (!ktitle.trim() || !kcontent.trim()) return;
@@ -99,10 +122,44 @@ export default function KnowledgeTab({ user }) {
             </div>
           </div>
         ) : (
-          <div style={{ maxWidth: 620 }}>
+          <div style={{ maxWidth: 640 }}>
             <h3 style={{ color: C.gold, fontWeight: 'normal', fontSize: 16, marginBottom: 20 }}>
               {sel === 'new' ? 'Ny kunnskapsartikkel' : 'Rediger: ' + ktitle}
             </h3>
+
+            {isAdmin && (
+              <div style={{ background: 'rgba(201,168,76,0.06)', border: '1px solid rgba(201,168,76,0.2)', borderRadius: 8, padding: '14px 16px', marginBottom: 22 }}>
+                <div style={{ fontSize: 10, color: C.gold, fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 10 }}>
+                  Hent fra nettside automatisk
+                </div>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <input
+                    type="url"
+                    value={urlInput}
+                    onChange={e => setUrlInput(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') fetchFromUrl(); }}
+                    placeholder="https://www.bank.no/retningslinjer"
+                    style={{ flex: 1, background: C.bg, border: '1px solid ' + C.border, borderRadius: 6, padding: '8px 12px', color: C.text, fontSize: 12, fontFamily: 'inherit', outline: 'none' }}
+                  />
+                  <button
+                    onClick={fetchFromUrl}
+                    disabled={crawling || !urlInput.trim()}
+                    style={{ background: crawling ? C.border : 'linear-gradient(135deg,' + C.gold + ',' + C.goldL + ')', border: 'none', color: C.bg, padding: '8px 16px', borderRadius: 6, cursor: crawling ? 'wait' : 'pointer', fontSize: 11, fontWeight: 'bold', fontFamily: 'inherit', whiteSpace: 'nowrap' }}
+                  >
+                    {crawling ? 'Henter...' : 'Hent innhold'}
+                  </button>
+                </div>
+                {crawlError && (
+                  <div style={{ fontSize: 11, color: '#e07070', marginTop: 8 }}>{crawlError}</div>
+                )}
+                {!crawlError && (
+                  <div style={{ fontSize: 10, color: C.muted, marginTop: 8 }}>
+                    Lim inn lenken til en nettside – innholdet fylles automatisk inn nedenfor.
+                  </div>
+                )}
+              </div>
+            )}
+
             <Fld label="Tittel" value={ktitle} onChange={setKtitle} placeholder="f.eks. Omstartslån – krav og strategi" disabled={!isAdmin} />
             <div>
               <label style={{ display: 'block', fontSize: 10, color: C.muted, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 5 }}>Innhold</label>
