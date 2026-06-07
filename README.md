@@ -1,29 +1,79 @@
-# Alti Finans – Intelligence System
+# Alti Finans – Intelligence System v2.0
 
-## Deployment til Vercel (10 minutter)
+## Kom i gang (Vercel-deploy)
 
-### Steg 1 – GitHub
-1. Gå til github.com og logg inn / opprett konto
-2. Klikk "New repository" → gi den navn "altifinans-agent" → Public → Create
-3. Last opp alle filene i dette prosjektet
+### Steg 1 – Miljøvariabler i Vercel
 
-### Steg 2 – Vercel
-1. Gå til vercel.com → logg inn med GitHub
-2. Klikk "New Project" → velg "altifinans-agent"
-3. Under "Environment Variables" legg inn:
-   - ANTHROPIC_API_KEY = sk-ant-... (din nøkkel)
-   - NEXT_PUBLIC_SB_URL = https://noknpaopqfqblxovzihi.supabase.co
-   - NEXT_PUBLIC_SB_KEY = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-   - NEXT_PUBLIC_ADMIN_CODE = altifinans2026
-4. Klikk "Deploy"
-5. Etter 2 minutter er nettsiden live på en URL som altifinans-agent.vercel.app
+Gå til Vercel → prosjektet ditt → Settings → Environment Variables og legg inn:
 
-### Tilgangsstyring
-- Du oppretter rådgiverkontoer med admin-koden
-- Hvis noen slutter: logg inn som admin og slett brukeren fra Supabase
-- Rådgiverne trenger ingen Claude-konto
+| Variabel | Verdi | Hvor finner du den |
+|---|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | `https://xxx.supabase.co` | Supabase → Settings → API |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | `eyJ...` | Supabase → Settings → API |
+| `SUPABASE_SERVICE_ROLE_KEY` | `eyJ...` | Supabase → Settings → API (hemmelig!) |
+| `ANTHROPIC_API_KEY` | `sk-ant-...` | console.anthropic.com |
+| `SESSION_SECRET` | minst 32 tilfeldige tegn | Lag selv, del aldri |
+| `OWNER_EMAIL` | din@epost.no | E-posten du bruker som admin |
 
-### Kostnader
-- Vercel hosting: Gratis
-- Supabase database: Gratis
-- Anthropic API: betales per bruk (~1-3 kr per kundesamtale)
+**Slett gammel variabel:** Fjern `NEXT_PUBLIC_ADMIN_CODE` hvis den finnes.
+
+**SESSION_SECRET eksempel:** `xK9#mP2@qL5vN8wR3yT6uB1cF4dG7hJ0`
+
+### Steg 2 – Supabase database
+
+Gå til Supabase → SQL Editor og kjør innholdet fra filen `supabase/schema.sql`.
+Dette oppretter tabellene og låser dem for direkte tilgang fra nettleseren.
+
+### Steg 3 – Deploy
+
+Push til GitHub så deployer Vercel automatisk:
+```
+git push
+```
+
+### Steg 4 – Første innlogging
+
+Registrer deg med e-posten som er satt i `OWNER_EMAIL`.
+Du blir automatisk admin. Ingen admin-kode trengs.
+
+---
+
+## Slik fungerer admin
+
+- **Deg (eieren):** Permanent admin. Kan aldri degraderes.
+- **Gi admin til ansatte:** Logg inn → Admin-fanen → klikk "Gi admin" ved siden av brukeren.
+- **Fjerne admin:** Admin-fanen → klikk "Fjern admin".
+- **Ingen kan gjøre seg selv til admin** – det er umulig i systemet.
+
+---
+
+## Filstøtte
+
+Agenten kan analysere disse filtypene:
+- **PDF** – lånesøknader, kontrakter
+- **Word (.docx)** – dokumenter
+- **Excel (.xlsx, .xls, .csv)** – kalkulatorer, regneark
+- **Google Regneark** – eksporter som Excel eller CSV
+- **Bilder/skjermbilder** – PNG, JPG, WEBP
+
+---
+
+## Kostnader
+
+| Tjeneste | Kostnad |
+|---|---|
+| Vercel hosting | Gratis |
+| Supabase database | Gratis |
+| Anthropic API | ~1–3 kr per kundesamtale |
+
+---
+
+## Feilsøking
+
+Alle filer er organisert slik:
+- `lib/` – databasetilgang, autentisering, filparsing
+- `pages/api/` – alle API-endepunkter (ingen database-tilgang fra nettleser)
+- `components/` – én fil per skjermvisning
+- `supabase/schema.sql` – databaseoppsett
+
+Hvis noe ikke fungerer: sjekk Vercel-loggene under Functions-fanen.
