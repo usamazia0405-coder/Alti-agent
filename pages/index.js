@@ -367,9 +367,7 @@ function AuthScreen(props) {
         >
           {loading ? 'Vennligst vent...' : mode === 'login' ? 'Logg inn' : 'Opprett konto'}
         </button>
-        <div style={{ padding: '11px 14px', background: 'rgba(201,168,76,0.1)', border: '1px solid rgba(201,168,76,0.3)', borderRadius: 6, fontSize: 11, color: C.muted, lineHeight: 1.7 }}>
-          <strong style={{ color: C.gold }}>Admin-kode:</strong> <span style={{ color: C.text }}>{ADMIN_CODE}</span>
-        </div>
+
       </div>
     </div>
   );
